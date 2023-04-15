@@ -1,5 +1,21 @@
 # @rollup/plugin-auto-install ChangeLog
 
+## v3.0.4
+
+_2023-04-04_
+
+### Updates
+
+- docs: add pnpm to package manager option [#1436](https://github.com/rollup/plugins/pull/1436)
+
+## v3.0.3
+
+_2023-01-20_
+
+### Bugfixes
+
+- fix: types should come first in exports [#1403](https://github.com/rollup/plugins/pull/1403)
+
 ## v3.0.2
 
 _2022-10-21_
