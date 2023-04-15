@@ -1,5 +1,4 @@
-import process from 'process';
-import { isMainThread, parentPort, workerData } from 'worker_threads';
+import { isMainThread, parentPort } from 'worker_threads';
 
 import { hasOwnProperty, isObject } from 'smob';
 
@@ -22,26 +21,36 @@ function isWorkerContextSerialized(input: unknown): input is WorkerContextSerial
   );
 }
 
-export async function runWorker() {
-  if (isMainThread || !parentPort || !isWorkerContextSerialized(workerData)) {
+export function runWorker() {
+  if (isMainThread || !parentPort) {
     return;
   }
 
-  try {
-    // eslint-disable-next-line no-eval
-    const eval2 = eval;
+  // eslint-disable-next-line no-eval
+  const eval2 = eval;
 
-    const options = eval2(`(${workerData.options})`);
+  parentPort.on('message', async (data: WorkerContextSerialized) => {
+    if (!isWorkerContextSerialized(data)) {
+      return;
+    }
 
-    const result = await minify(workerData.code, options);
+    const options = eval2(`(${data.options})`);
+
+    const result = await minify(data.code, options);
 
     const output: WorkerOutput = {
-      code: result.code || workerData.code,
+      code: result.code || data.code,
       nameCache: options.nameCache
     };
 
-    parentPort.postMessage(output);
-  } catch (e) {
-    process.exit(1);
-  }
+    if (typeof result.map === 'string') {
+      output.sourceMap = JSON.parse(result.map);
+    }
+
+    if (isObject(result.map)) {
+      output.sourceMap = result.map;
+    }
+
+    parentPort?.postMessage(output);
+  });
 }

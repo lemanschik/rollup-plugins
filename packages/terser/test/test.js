@@ -15,6 +15,21 @@ test.serial('minify', async (t) => {
   t.falsy(output.map);
 });
 
+test.serial('minify with source map', async (t) => {
+  const bundle = await rollup({
+    input: 'test/fixtures/unminified.js',
+    plugins: [terser()]
+  });
+  const result = await bundle.generate({ format: 'cjs', sourcemap: true });
+  t.is(result.output.length, 2);
+  const [output] = result.output;
+
+  t.truthy(output.map);
+  t.is(output.map.version, 3);
+  t.is(output.map.file, 'unminified.js');
+  t.deepEqual(output.map.names, ['window', 'a', 'console', 'log']);
+});
+
 test.serial('minify via terser options', async (t) => {
   const bundle = await rollup({
     input: 'test/fixtures/empty.js',
@@ -31,9 +46,11 @@ test.serial('minify via terser options', async (t) => {
 });
 
 test.serial('minify multiple outputs', async (t) => {
+  let plugin;
+
   const bundle = await rollup({
     input: 'test/fixtures/unminified.js',
-    plugins: [terser()]
+    plugins: [(plugin = terser({ maxWorkers: 2 }))]
   });
 
   const [bundle1, bundle2] = await Promise.all([
@@ -45,6 +62,20 @@ test.serial('minify multiple outputs', async (t) => {
 
   t.is(output1.code, '"use strict";window.a=5,window.a<3&&console.log(4);\n');
   t.is(output2.code, 'window.a=5,window.a<3&&console.log(4);\n');
+  t.is(plugin.numOfWorkersUsed, 2, 'used 2 workers');
+});
+
+test.serial('minify multiple outputs with only 1 worker', async (t) => {
+  let plugin;
+
+  const bundle = await rollup({
+    input: 'test/fixtures/unminified.js',
+    plugins: [(plugin = terser({ maxWorkers: 1 }))]
+  });
+
+  await Promise.all([bundle.generate({ format: 'cjs' }), bundle.generate({ format: 'es' })]);
+
+  t.is(plugin.numOfWorkersUsed, 1, 'used 1 worker');
 });
 
 test.serial('minify esm module', async (t) => {
@@ -107,7 +138,7 @@ test.serial('throw error on terser fail', async (t) => {
     await bundle.generate({ format: 'esm' });
     t.falsy(true);
   } catch (error) {
-    t.is(error.toString(), 'Error: Minify worker stopped with exit code 1');
+    t.is(error.toString(), 'SyntaxError: Name expected');
   }
 });
 
@@ -127,7 +158,7 @@ test.serial('throw error on terser fail with multiple outputs', async (t) => {
     await Promise.all([bundle.generate({ format: 'cjs' }), bundle.generate({ format: 'esm' })]);
     t.falsy(true);
   } catch (error) {
-    t.is(error.toString(), 'Error: Minify worker stopped with exit code 1');
+    t.is(error.toString(), 'SyntaxError: Name expected');
   }
 });
 
